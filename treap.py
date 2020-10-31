@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sys
 from random import Random
-from typing import (ClassVar, Generic, Iterable, Iterator, List,
-                    MutableSequence, Optional, Tuple, TypeVar)
+from typing import (ClassVar, Generic, Iterable, Iterator,
+                    MutableSequence, Optional, Tuple, TypeVar, overload)
 
 
 class TreapError(Exception):
@@ -17,8 +17,8 @@ class Node(Generic[T]):
     random: ClassVar[Random] = Random()
 
     value: T
-    _left: Optional[Node]
-    _right: Optional[Node]
+    _left: Optional[Node[T]]
+    _right: Optional[Node[T]]
     length: int
     priority: float
 
@@ -32,20 +32,20 @@ class Node(Generic[T]):
         self.priority = priority
 
     @property
-    def left(self) -> Optional[Node]:
+    def left(self) -> Optional[Node[T]]:
         return self._left
 
     @left.setter
-    def left(self, value: Optional[Node]) -> None:
+    def left(self, value: Optional[Node[T]]) -> None:
         self._left = value
         self._update()
 
     @property
-    def right(self) -> Optional[Node]:
+    def right(self) -> Optional[Node[T]]:
         return self._right
 
     @right.setter
-    def right(self, value: Optional[Node]) -> None:
+    def right(self, value: Optional[Node[T]]) -> None:
         self._right = value
         self._update()
 
@@ -57,7 +57,7 @@ class Node(Generic[T]):
             self.length += self.right.length
 
     @classmethod
-    def merge(cls, left: Optional[Node], right: Optional[Node]) -> Optional[Node]:
+    def merge(cls, left: Optional[Node[T]], right: Optional[Node[T]]) -> Optional[Node[T]]:
         if left is None:
             return right
         if right is None:
@@ -72,9 +72,13 @@ class Node(Generic[T]):
         return node
 
     @classmethod
-    def split(cls, node: Optional[Node], index: int) -> Tuple[Optional[Node], Optional[Node]]:
+    def split(cls, node: Optional[Node[T]], index: int) -> Tuple[Optional[Node[T]], Optional[Node[T]]]:
         if node is None:
             return None, None
+
+        left: Optional[Node[T]]
+        center: Optional[Node[T]]
+        right: Optional[Node[T]]
 
         length = node.left.length if node.left is not None else 0
         if length >= index:
@@ -89,7 +93,7 @@ class Node(Generic[T]):
         return left, right
 
     @classmethod
-    def insert(cls, node: Optional[Node], index: int, value: T, priority: Optional[float] = None) -> Node:
+    def insert(cls, node: Optional[Node[T]], index: int, value: T, priority: Optional[float] = None) -> Node[T]:
         left, right = cls.split(node, index)
         temp = cls.merge(left, Node(value, priority))
         new_node = cls.merge(temp, right)
@@ -98,14 +102,14 @@ class Node(Generic[T]):
         return new_node
 
     @classmethod
-    def erase(cls, node: Optional[Node], index: int) -> Optional[Node]:
+    def erase(cls, node: Optional[Node[T]], index: int) -> Optional[Node[T]]:
         left, right = cls.split(node, index + 1)
         temp = cls.split(left, index)[0]
         new_node = cls.merge(temp, right)
         return new_node
 
     @classmethod
-    def find(cls, node: Optional[Node], index: int) -> Optional[Node]:
+    def find(cls, node: Optional[Node[T]], index: int) -> Optional[Node[T]]:
         while node:
             cnt = node.left.length if node.left else 0
             if cnt > index:
@@ -119,20 +123,57 @@ class Node(Generic[T]):
 
 
 class Treap(MutableSequence[T], Iterable[T]):
-    root: Optional[T]
+    root: Optional[Node[T]]
 
     def __init__(self) -> None:
         self.root = None
 
-    def __getitem__(self, index: int) -> T:
+    def _find(self, index: int) -> Node[T]:
         if not (0 <= index < len(self)):
             raise IndexError()
         node = Node.find(self.root, index)
-        return node.value
+        if node is None:
+            raise IndexError()
+        return node
+
+    @overload
+    def __getitem__(self, index: int) -> T:
+        ...
+
+    @overload
+    def __getitem__(self, index: slice) -> MutableSequence[T]:
+        ...
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            node = self._find(index)
+            return node.value
+        elif isinstance(index, slice):
+            tree = self.__class__()
+            root = self.root
+            start, stop, step = index.indices(len(self))
+            if step is not None and step != 1:
+                for i in range(start, stop, step):
+                    tree.append(Node.find(root, i).value)
+            else:
+                left, temp0 = Node.split(root, start)
+                center, right = Node.split(temp0, stop - start)
+
+                if center is not None:
+                    # TODO: 永続化して split だけで動くようにしたい
+                    # tree.root = Node(center.value, center.priority)
+                    # tree.root.left = center.left
+                    # tree.root.right = center.right
+                    for i in range(center.length):
+                        tree.append(Node.find(center, i).value)
+                temp1 = Node.merge(center, right)
+                self.root = Node.merge(left, temp1)
+            return tree
+        raise IndexError()
 
     def __setitem__(self, index: int, value: T) -> None:
         # TODO: 値の伝搬
-        node = self[index]
+        node = self._find(index)
         node.value = value
 
     def __delitem__(self, index: int) -> None:

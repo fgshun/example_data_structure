@@ -47,7 +47,7 @@ def test_treap():
 
     for i in range(10):
         t.append(i)
-    
+
     assert len(t) == 10
     assert t.index(3) == 3
     with pytest.raises(ValueError):
@@ -61,3 +61,25 @@ def test_treap():
     assert t[2] == 2
     assert t[3] == 100
     assert t[4] == 3
+
+    del t[3]
+    assert len(t) == 10
+    assert t[2] == 2
+    assert t[3] == 3
+
+
+def test_slicing():
+    t = treap.Treap()
+    for i in range(10):
+        t.append(i)
+    subt = t[1:4]
+    assert len(subt) == 3
+    assert tuple(subt) == (1, 2, 3)
+    assert len(t) == 10
+    assert tuple(t) == tuple(range(10))
+
+    subt2 = t[1:6:2]
+    assert len(subt2) == 3
+    assert tuple(subt2) == (1, 3, 5)
+    assert len(t) == 10
+    assert tuple(t) == tuple(range(10))
