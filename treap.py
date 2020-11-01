@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import operator
 import sys
+from functools import reduce
 from random import Random
-from typing import (ClassVar, Generic, Iterable, Iterator,
-                    MutableSequence, Optional, Tuple, TypeVar, overload)
+from typing import (Callable, ClassVar, Generic, Iterable, Iterator,
+                    MutableSequence, Optional, Tuple, Type, TypeVar, overload)
 
 
 class TreapError(Exception):
@@ -11,19 +13,6 @@ class TreapError(Exception):
 
 
 T = TypeVar('T')
-
-
-class A:
-    pass
-
-class B(A):
-    pass
-
-class C(A):
-    pass
-
-class D(B, C):
-    pass
 
 
 class Node(Generic[T]):
@@ -108,7 +97,7 @@ class Node(Generic[T]):
     @classmethod
     def insert(cls, node: Optional[Node[T]], index: int, value: T, priority: Optional[float] = None) -> Node[T]:
         left, right = cls.split(node, index)
-        temp = cls.merge(left, Node(value, priority))
+        temp = cls.merge(left, cls(value, priority))
         new_node = cls.merge(temp, right)
         if new_node is None:
             raise TreapError()
@@ -135,7 +124,52 @@ class Node(Generic[T]):
         return None
 
 
+class LNode(Node[T]):
+    acc: T
+    _left: Optional[LNode[T]]
+    _right: Optional[LNode[T]]
+    ie: ClassVar[T]
+    ope: ClassVar[Callable[[T, T], T]]
+
+    def __init__(self, value: T, priority: Optional[float]) -> None:
+        super().__init__(value, priority)
+        self.acc = self.value
+        self.lazy = self.ie
+
+    @property
+    def left(self) -> Optional[LNode[T]]:
+        return self._left
+
+    @left.setter
+    def left(self, value: Optional[LNode[T]]) -> None:
+        self._left = value
+        self._update()
+
+    @property
+    def right(self) -> Optional[LNode[T]]:
+        return self._right
+
+    @right.setter
+    def right(self, value: Optional[LNode[T]]) -> None:
+        self._right = value
+        self._update()
+
+    def _update(self) -> None:
+        super()._update()
+        self.acc = reduce(type(self).ope, (
+            self.value,
+            self.left.acc if self.left else self.ie,
+            self.right.acc if self.right else self.ie,
+            ))
+
+
+class AddNode(LNode[int]):
+    ie = 0
+    ope = operator.add
+
+
 class Treap(MutableSequence[T], Iterable[T]):
+    node_cls: Type[Node[T]] = Node
     root: Optional[Node[T]]
 
     def __init__(self) -> None:
@@ -144,7 +178,7 @@ class Treap(MutableSequence[T], Iterable[T]):
     def _find(self, index: int) -> Node[T]:
         if not (0 <= index < len(self)):
             raise IndexError()
-        node = Node.find(self.root, index)
+        node = self.node_cls.find(self.root, index)
         if node is None:
             raise IndexError()
         return node
@@ -166,7 +200,7 @@ class Treap(MutableSequence[T], Iterable[T]):
             root = self.root
             start, stop, step = index.indices(len(self))
             for i in range(start, stop, step):
-                tree.append(Node.find(root, i).value)
+                tree.append(self.node_cls.find(root, i).value)
             return tree
         raise IndexError()
 
@@ -208,12 +242,11 @@ class Treap(MutableSequence[T], Iterable[T]):
         if isinstance(index, int):
             if not (0 <= index < len(self)):
                 raise IndexError()
-            self.root = Node.erase(self.root, index)
+            self.root = self.node_cls.erase(self.root, index)
         elif isinstance(index, slice):
-            tree = self.__class__()
             start, stop, step = index.indices(len(self))
             for i in reversed(range(start, stop, step)):
-                self.root = Node.erase(self.root, i)
+                self.root = self.node_cls.erase(self.root, i)
         else:
             raise IndexError()
 
@@ -223,11 +256,15 @@ class Treap(MutableSequence[T], Iterable[T]):
         return self.root.length
 
     def insert(self, index: int, value: T) -> None:
-        self.root = Node.insert(self.root, index, value)
+        self.root = self.node_cls.insert(self.root, index, value)
 
     def __iter__(self) -> Iterator[T]:
         for index in range(len(self)):
             yield self[index]
+
+
+class AddTreap(Treap[int]):
+    node_cls = AddNode
 
 
 def main() -> None:

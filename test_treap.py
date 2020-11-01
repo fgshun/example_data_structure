@@ -99,3 +99,11 @@ def test_slicing():
     assert tuple(subt2) == (1, 5)
     del t[1::2]
     assert tuple(t) == (0, 2, 4, 6, 8)
+
+
+def test_addtree():
+    tree = treap.AddTreap()
+
+    tree.extend(range(10))
+    assert tuple(tree) == tuple(range(10))
+    assert tree.root.acc == sum(range(10))
