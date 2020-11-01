@@ -4,7 +4,7 @@ import operator
 import sys
 from functools import reduce
 from random import Random
-from typing import (Callable, ClassVar, Generic, Iterable, Iterator,
+from typing import (Any, Callable, ClassVar, Generic, Iterable, Iterator,
                     MutableSequence, Optional, Tuple, Type, TypeVar, overload)
 
 
@@ -128,8 +128,8 @@ class LNode(Node[T]):
     acc: T
     _left: Optional[LNode[T]]
     _right: Optional[LNode[T]]
-    ie: ClassVar[T]
-    ope: ClassVar[Callable[[T, T], T]]
+    ie: ClassVar[Any]
+    ope: ClassVar[Callable[[Any, Any], T]]
 
     def __init__(self, value: T, priority: Optional[float]) -> None:
         super().__init__(value, priority)
@@ -166,6 +166,18 @@ class LNode(Node[T]):
 class AddNode(LNode[int]):
     ie = 0
     ope = operator.add
+
+
+class MinNode(LNode[Optional[int]]):
+    ie = None
+
+    @staticmethod
+    def ope(a: Optional[int], b: Optional[int]) -> Optional[int]:
+        if a is None:
+            return b
+        elif b is None:
+            return a
+        return min(a, b)
 
 
 class Treap(MutableSequence[T], Iterable[T]):
@@ -262,9 +274,24 @@ class Treap(MutableSequence[T], Iterable[T]):
         for index in range(len(self)):
             yield self[index]
 
+    def split(self, index: int) -> Tuple[Treap, Treap]:
+        left = type(self)()
+        right = type(self)()
+        left.root, right.root = self.node_cls.split(self.root, index)
+        return left, right
+
+    def merge(self, other: Treap) -> Treap:
+        tree = type(self)()
+        tree.root = self.node_cls.merge(self.root, other.root)
+        return tree
+
 
 class AddTreap(Treap[int]):
     node_cls = AddNode
+
+
+class MinTreap(Treap[Optional[int]]):
+    node_cls = MinNode
 
 
 def main() -> None:

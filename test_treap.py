@@ -107,3 +107,24 @@ def test_addtree():
     tree.extend(range(10))
     assert tuple(tree) == tuple(range(10))
     assert tree.root.acc == sum(range(10))
+
+
+def test_mintree():
+    tree = treap.MinTreap()
+
+    tree.extend(range(10))
+    assert tuple(tree) == tuple(range(10))
+    assert tree.root.acc == 0
+
+    left, temp = tree.split(3)
+    center, right = temp.split(5)
+
+    assert left.root.acc == 0
+    assert center.root.acc == 3
+    assert right.root.acc == 3 + 5
+
+    temp = center.merge(right)
+    assert temp.root.acc == 3
+
+    tree = left.merge(temp)
+    assert tree.root.acc == 0
