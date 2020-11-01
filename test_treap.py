@@ -83,3 +83,19 @@ def test_slicing():
     assert tuple(subt2) == (1, 3, 5)
     assert len(t) == 10
     assert tuple(t) == tuple(range(10))
+
+    assert subt2[1] == 3
+    subt2[1] = 100
+    assert subt2[1] == 100
+
+    with pytest.raises(ValueError):
+        t[1::2] = (1, 2, 3, 4)
+    with pytest.raises(ValueError):
+        t[1::2] = (1, 2, 3, 4, 5, 6)
+    t[1::2] = (100, 101, 102, 103, 104)
+    assert tuple(t) == (0, 100, 2, 101, 4, 102, 6, 103, 8, 104)
+
+    del subt2[1]
+    assert tuple(subt2) == (1, 5)
+    del t[1::2]
+    assert tuple(t) == (0, 2, 4, 6, 8)

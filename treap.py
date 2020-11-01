@@ -13,6 +13,19 @@ class TreapError(Exception):
 T = TypeVar('T')
 
 
+class A:
+    pass
+
+class B(A):
+    pass
+
+class C(A):
+    pass
+
+class D(B, C):
+    pass
+
+
 class Node(Generic[T]):
     random: ClassVar[Random] = Random()
 
@@ -152,34 +165,57 @@ class Treap(MutableSequence[T], Iterable[T]):
             tree = self.__class__()
             root = self.root
             start, stop, step = index.indices(len(self))
-            if step is not None and step != 1:
-                for i in range(start, stop, step):
-                    tree.append(Node.find(root, i).value)
-            else:
-                left, temp0 = Node.split(root, start)
-                center, right = Node.split(temp0, stop - start)
-
-                if center is not None:
-                    # TODO: 永続化して split だけで動くようにしたい
-                    # tree.root = Node(center.value, center.priority)
-                    # tree.root.left = center.left
-                    # tree.root.right = center.right
-                    for i in range(center.length):
-                        tree.append(Node.find(center, i).value)
-                temp1 = Node.merge(center, right)
-                self.root = Node.merge(left, temp1)
+            for i in range(start, stop, step):
+                tree.append(Node.find(root, i).value)
             return tree
         raise IndexError()
 
+    @overload
     def __setitem__(self, index: int, value: T) -> None:
-        # TODO: 値の伝搬
-        node = self._find(index)
-        node.value = value
+        ...
 
+    @overload
+    def __setitem__(self, index: slice, value: Iterable[T]) -> None:
+        ...
+
+    def __setitem__(self, index, value):
+        if isinstance(index, int):
+            node = self._find(index)
+            node.value = value
+            return
+        elif isinstance(index, slice):
+            values = tuple(value)
+            index2 = range(*index.indices(len(self)))
+            if len(index2) != len(values):
+                raise ValueError('attempt to assign sequence of size {} to extended slice of size {}'.format(
+                                 len(values), len(index2)))
+            for i, v in zip(index2, values):
+                node = self._find(i)
+                node.value = v
+            return
+
+        raise IndexError()
+
+    @overload
     def __delitem__(self, index: int) -> None:
-        if not (0 <= index < len(self)):
+        ...
+
+    @overload
+    def __delitem__(self, index: slice) -> None:
+        ...
+
+    def __delitem__(self, index):
+        if isinstance(index, int):
+            if not (0 <= index < len(self)):
+                raise IndexError()
+            self.root = Node.erase(self.root, index)
+        elif isinstance(index, slice):
+            tree = self.__class__()
+            start, stop, step = index.indices(len(self))
+            for i in reversed(range(start, stop, step)):
+                self.root = Node.erase(self.root, i)
+        else:
             raise IndexError()
-        self.root = Node.erase(self.root, index)
 
     def __len__(self) -> int:
         if self.root is None:
