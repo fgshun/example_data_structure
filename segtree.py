@@ -31,9 +31,9 @@ class SegumentTree(Generic[T]):
         self.data = [ie() for _ in range(len(data) * 4)]
         self.lazy = [ie() for _ in range(len(data) * 4)]
         for i, v in enumerate(data):
-            s = i
-            e = s + 1
-            self.update(s, e, v)
+            self.data[i + length - 1] = v
+        for i in range(length - 2, -1, -1):
+            self.data[i] = self.monoid.bo(self.data[i * 2 + 1], self.data[i * 2 + 2])
 
     def eval(self, i: int) -> None:
         lazy = self.lazy[i]
