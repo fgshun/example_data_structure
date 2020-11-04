@@ -2,44 +2,48 @@ import operator
 from typing import (Any, Callable, Generic, Iterable, MutableSequence,
                     NamedTuple, Optional, TypeVar)
 
-T = TypeVar('T')
-BO = Callable[[T, T], T]
-IE = Callable[[], T]
+X = TypeVar('X')
+M = TypeVar('M')
+FX = Callable[[X, X], X]
+FA = Callable[[X, M], X]
+FM = Callable[[M, M], M]
+FP = Callable[[M, int], M]
+EX = Callable[[], X]
+EM = Callable[[], M]
 
 
 class Monoid(NamedTuple):
-    bo: BO
-    ie: IE
-    is_group: Optional[Callable[[Any], bool]] = None
+    fx: FX
+    ex: EX
 
 
-class SegumentTree(Generic[T]):
+class SegumentTree(Generic[X]):
     """セグメント木"""
     monoid: Monoid
     length: int
-    data: MutableSequence[T]
-    lazy: MutableSequence[T]
+    data: MutableSequence[X]
+    lazy: MutableSequence[X]
 
-    def __init__(self, seq: Iterable[T], monoid: Monoid = Monoid(operator.add, int)) -> None:
+    def __init__(self, seq: Iterable[X], monoid: Monoid = Monoid(operator.add, int)) -> None:
         self.monoid = monoid
         data = tuple(seq)
         length = 1
         while len(data) > length:
             length *= 2
         self.length = length
-        ie = monoid.ie
-        self.data = [ie() for _ in range(len(data) * 4)]
-        self.lazy = [ie() for _ in range(len(data) * 4)]
+        ex = monoid.ex
+        self.data = [ex() for _ in range(len(data) * 4)]
+        self.lazy = [ex() for _ in range(len(data) * 4)]
         for i, v in enumerate(data):
             self.data[i + length - 1] = v
         for i in range(length - 2, -1, -1):
-            self.data[i] = self.monoid.bo(self.data[i * 2 + 1], self.data[i * 2 + 2])
+            self.data[i] = self.monoid.fx(self.data[i * 2 + 1], self.data[i * 2 + 2])
 
     def eval(self, i: int) -> None:
         lazy = self.lazy[i]
-        ie = self.monoid.ie()
+        ex = self.monoid.ex()
 
-        if lazy == ie:
+        if lazy == ex:
             return
 
         if i < self.length - 1:
@@ -47,12 +51,12 @@ class SegumentTree(Generic[T]):
             self.lazy[i * 2 + 2] = lazy
 
         self.data[i] = lazy
-        self.lazy[i] = ie
+        self.lazy[i] = ex
 
-    def update(self, start: int, end: int, value: T) -> None:
+    def update(self, start: int, end: int, value: X) -> None:
         self._update(start, end, value, 0, 0, self.length)
 
-    def _update(self, a: int, b: int, v: T, k: int, l: int, r: int) -> None:
+    def _update(self, a: int, b: int, v: X, k: int, l: int, r: int) -> None:
         self.eval(k)
         if a <= l and r <= b:  # 完全に含む。
             self.lazy[k] = v
@@ -60,29 +64,26 @@ class SegumentTree(Generic[T]):
         elif a < r and l < b:
             self._update(a, b, v, k * 2 + 1, l, (l + r) // 2)
             self._update(a, b, v, k * 2 + 2, (l + r) // 2, r)
-            self.data[k] = self.monoid.bo(self.data[k * 2 + 1], self.data[k * 2 + 2])
+            self.data[k] = self.monoid.fx(self.data[k * 2 + 1], self.data[k * 2 + 2])
 
-    def query(self, start: int, end: int) -> T:
+    def query(self, start: int, end: int) -> X:
         return self._query(start, end, 0, 0, self.length)
 
-    def _query(self, a: int, b: int, k: int, l: int, r: int) -> T:
+    def _query(self, a: int, b: int, k: int, l: int, r: int) -> X:
         self.eval(k)
         if r <= a or b <= l:  # 交差しない。単位元を返す
-            return self.monoid.ie()
+            return self.monoid.ex()
         if a <= l and r <= b:  # 完全に含む。
             return self.data[k]
         else:
             vl = self._query(a, b, k * 2 + 1, l, (l + r) // 2)
             vr = self._query(a, b, k * 2 + 2, (l + r) // 2, r)
-            return self.monoid.bo(vl, vr)
+            return self.monoid.fx(vl, vr)
 
 
 def main() -> None:
-    op: BO
-    ie: IE
-
-    mo = Monoid(min, lambda: 100000, lambda v: 0 <= v < 10000)
-    # mo = Monoid(max, lambda: -1, lambda v: 0 <= v < 100000)
+    mo = Monoid(min, lambda: 100000)
+    # mo = Monoid(max, lambda: -1)
     # mo = Monoid(operator.add, int)
     # mo = Monoid(operator.mul, lambda: 1)
 
@@ -93,8 +94,8 @@ def main() -> None:
     b = a.query(s, e)
 
     from functools import reduce
-    print(b, reduce(mo.bo, range(s, e)))
-    print(a.query(0, n), reduce(mo.bo, range(n)))
+    print(b, reduce(mo.fx, range(s, e)))
+    print(a.query(0, n), reduce(mo.fx, range(n)))
     a.update(3, 6, 0)
     print(a.query(s, e))
     print(a.query(3, 7))
