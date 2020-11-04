@@ -4,7 +4,7 @@ import operator
 import sys
 from functools import reduce
 from random import Random
-from typing import (Any, Callable, ClassVar, Generic, Iterable, Iterator,
+from typing import (Any, Callable, ClassVar, Generic, Iterable, Iterator, NamedTuple,
                     MutableSequence, Optional, Tuple, Type, TypeVar, overload)
 
 
@@ -12,106 +12,54 @@ class TreapError(Exception):
     pass
 
 
-T = TypeVar('T')
+X = TypeVar('X')
+M = TypeVar('M')
+FX = Callable[[X, X], X]
+FA = Callable[[X, M], X]
+FM = Callable[[M, M], M]
+FP = Callable[[M, int], M]
+EX = Callable[[], X]
+EM = Callable[[], M]
 
 
-class Node(Generic[T]):
-    random: ClassVar[Random] = Random()
+class Monoid(NamedTuple):
+    fx: FX
+    fa: FA
+    fm: FM
+    fp: FP
+    ex: EX
+    em: EM
 
-    value: T
-    _left: Optional[Node[T]]
-    _right: Optional[Node[T]]
+
+class Node(Generic[X, M]):
+    value: X
+    lazy: M
+    left: Optional[Node[X, M]]
+    right: Optional[Node[X, M]]
     length: int
     priority: float
 
-    def __init__(self, value: T, priority: Optional[float]) -> None:
+    def __init__(self, value: X, lazy: M, priority: float) -> None:
         self.value = value
-        self._left = None
-        self._right = None
+        self.lazy = lazy
+        self.left = None
+        self.right = None
         self.length = 1
-        if priority is None:
-            priority = self.random.random()
         self.priority = priority
 
-    @property
-    def left(self) -> Optional[Node[T]]:
-        return self._left
 
-    @left.setter
-    def left(self, value: Optional[Node[T]]) -> None:
-        self._left = value
-        self._update()
+class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
+    random: ClassVar[Random] = Random()
+    root: Optional[Node[X, M]]
 
-    @property
-    def right(self) -> Optional[Node[T]]:
-        return self._right
+    def __init__(self, monoid: Monoid) -> None:
+        self.root = None
+        self.monoid = monoid
 
-    @right.setter
-    def right(self, value: Optional[Node[T]]) -> None:
-        self._right = value
-        self._update()
-
-    def _update(self) -> None:
-        self.length = 1
-        if self.left is not None:
-            self.length += self.left.length
-        if self.right is not None:
-            self.length += self.right.length
-
-    @classmethod
-    def merge(cls, left: Optional[Node[T]], right: Optional[Node[T]]) -> Optional[Node[T]]:
-        if left is None:
-            return right
-        if right is None:
-            return left
-
-        if left.priority <= right.priority:
-            node = right
-            node.left = cls.merge(left, node.left)
-        else:
-            node = left
-            node.right = cls.merge(node.right, right)
-        return node
-
-    @classmethod
-    def split(cls, node: Optional[Node[T]], index: int) -> Tuple[Optional[Node[T]], Optional[Node[T]]]:
-        if node is None:
-            return None, None
-
-        left: Optional[Node[T]]
-        center: Optional[Node[T]]
-        right: Optional[Node[T]]
-
-        length = node.left.length if node.left is not None else 0
-        if length >= index:
-            left, center = cls.split(node.left, index)
-            right = node
-            right.left = center
-        else:
-            center, right = cls.split(node.right, index - length - 1)
-            left = node
-            left.right = center
-
-        return left, right
-
-    @classmethod
-    def insert(cls, node: Optional[Node[T]], index: int, value: T, priority: Optional[float] = None) -> Node[T]:
-        left, right = cls.split(node, index)
-        temp = cls.merge(left, cls(value, priority))
-        new_node = cls.merge(temp, right)
-        if new_node is None:
-            raise TreapError()
-        return new_node
-
-    @classmethod
-    def erase(cls, node: Optional[Node[T]], index: int) -> Optional[Node[T]]:
-        left, right = cls.split(node, index + 1)
-        temp = cls.split(left, index)[0]
-        new_node = cls.merge(temp, right)
-        return new_node
-
-    @classmethod
-    def find(cls, node: Optional[Node[T]], index: int) -> Optional[Node[T]]:
+    def _find(self, index: int) -> Node[X, M]:
+        if not (0 <= index < len(self)):
+            raise IndexError()
+        node = self.root
         while node:
             cnt = node.left.length if node.left else 0
             if cnt > index:
@@ -121,86 +69,16 @@ class Node(Generic[T]):
             else:
                 node = node.right
                 index -= cnt + 1
-        return None
-
-
-class LNode(Node[T]):
-    acc: T
-    _left: Optional[LNode[T]]
-    _right: Optional[LNode[T]]
-    ie: ClassVar[Any]
-    ope: ClassVar[Callable[[Any, Any], T]]
-
-    def __init__(self, value: T, priority: Optional[float]) -> None:
-        super().__init__(value, priority)
-        self.acc = self.value
-        self.lazy = self.ie
-
-    @property
-    def left(self) -> Optional[LNode[T]]:
-        return self._left
-
-    @left.setter
-    def left(self, value: Optional[LNode[T]]) -> None:
-        self._left = value
-        self._update()
-
-    @property
-    def right(self) -> Optional[LNode[T]]:
-        return self._right
-
-    @right.setter
-    def right(self, value: Optional[LNode[T]]) -> None:
-        self._right = value
-        self._update()
-
-    def _update(self) -> None:
-        super()._update()
-        self.acc = reduce(type(self).ope, (
-            self.value,
-            self.left.acc if self.left else self.ie,
-            self.right.acc if self.right else self.ie,
-            ))
-
-
-class AddNode(LNode[int]):
-    ie = 0
-    ope = operator.add
-
-
-class MinNode(LNode[Optional[int]]):
-    ie = None
-
-    @staticmethod
-    def ope(a: Optional[int], b: Optional[int]) -> Optional[int]:
-        if a is None:
-            return b
-        elif b is None:
-            return a
-        return min(a, b)
-
-
-class Treap(MutableSequence[T], Iterable[T]):
-    node_cls: Type[Node[T]] = Node
-    root: Optional[Node[T]]
-
-    def __init__(self) -> None:
-        self.root = None
-
-    def _find(self, index: int) -> Node[T]:
-        if not (0 <= index < len(self)):
-            raise IndexError()
-        node = self.node_cls.find(self.root, index)
         if node is None:
             raise IndexError()
         return node
 
     @overload
-    def __getitem__(self, index: int) -> T:
+    def __getitem__(self, index: int) -> X:
         ...
 
     @overload
-    def __getitem__(self, index: slice) -> MutableSequence[T]:
+    def __getitem__(self, index: slice) -> Treap[X, M]:
         ...
 
     def __getitem__(self, index):
@@ -208,20 +86,19 @@ class Treap(MutableSequence[T], Iterable[T]):
             node = self._find(index)
             return node.value
         elif isinstance(index, slice):
-            tree = self.__class__()
-            root = self.root
+            tree = type(self)(self.monoid)
             start, stop, step = index.indices(len(self))
             for i in range(start, stop, step):
-                tree.append(self.node_cls.find(root, i).value)
+                tree.append(self._find(i).value)
             return tree
         raise IndexError()
 
     @overload
-    def __setitem__(self, index: int, value: T) -> None:
+    def __setitem__(self, index: int, value: X) -> None:
         ...
 
     @overload
-    def __setitem__(self, index: slice, value: Iterable[T]) -> None:
+    def __setitem__(self, index: slice, value: Iterable[X]) -> None:
         ...
 
     def __setitem__(self, index, value):
@@ -242,6 +119,12 @@ class Treap(MutableSequence[T], Iterable[T]):
 
         raise IndexError()
 
+    def _erase(self, node: Optional[Node[X, M]], index: int) -> Optional[Node[X, M]]:
+        left, right = self._split(node, index + 1)
+        temp = self._split(left, index)[0]
+        new_node = self._merge(temp, right)
+        return new_node
+
     @overload
     def __delitem__(self, index: int) -> None:
         ...
@@ -254,11 +137,11 @@ class Treap(MutableSequence[T], Iterable[T]):
         if isinstance(index, int):
             if not (0 <= index < len(self)):
                 raise IndexError()
-            self.root = self.node_cls.erase(self.root, index)
+            self.root = self._erase(self.root, index)
         elif isinstance(index, slice):
             start, stop, step = index.indices(len(self))
             for i in reversed(range(start, stop, step)):
-                self.root = self.node_cls.erase(self.root, i)
+                self.root = self._erase(self.root, i)
         else:
             raise IndexError()
 
@@ -267,31 +150,72 @@ class Treap(MutableSequence[T], Iterable[T]):
             return 0
         return self.root.length
 
-    def insert(self, index: int, value: T) -> None:
-        self.root = self.node_cls.insert(self.root, index, value)
+    def insert(self, index: int, value: X) -> None:
+        left, right = self._split(self.root, index)
+        temp = self._merge(left, Node(value, self.monoid.ex(), self.random.random()))
+        new_node = self._merge(temp, right)
+        if new_node is None:
+            raise TreapError()
+        self.root = new_node
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> Iterator[X]:
         for index in range(len(self)):
             yield self[index]
 
-    def split(self, index: int) -> Tuple[Treap, Treap]:
-        left = type(self)()
-        right = type(self)()
-        left.root, right.root = self.node_cls.split(self.root, index)
+    def _split(self, node: Optional[Node[X, M]], index: int) -> Tuple[Optional[Node[X, M]], Optional[Node[X, M]]]:
+        if node is None:
+            return None, None
+
+        left: Optional[Node[X, M]]
+        center: Optional[Node[X, M]]
+        right: Optional[Node[X, M]]
+
+        length = node.left.length if node.left is not None else 0
+        if length < index:
+            center, right = self._split(node.right, index - length - 1)
+            left = node
+            left.right = center
+            self._update(left)
+        else:
+            left, center = self._split(node.left, index)
+            right = node
+            right.left = center
+            self._update(right)
+
         return left, right
 
-    def merge(self, other: Treap) -> Treap:
-        tree = type(self)()
-        tree.root = self.node_cls.merge(self.root, other.root)
+    def split(self, index: int) -> Tuple[Treap[X, M], Treap[X, M]]:
+        left = type(self)(self.monoid)
+        right = type(self)(self.monoid)
+        left.root, right.root = self._split(self.root, index)
+        return left, right
+
+    def _merge(self, left: Optional[Node[X, M]], right: Optional[Node[X, M]]) -> Optional[Node[X, M]]:
+        if left is None:
+            return right
+        if right is None:
+            return left
+
+        if left.priority <= right.priority:
+            node = right
+            node.left = self._merge(left, node.left)
+        else:
+            node = left
+            node.right = self._merge(node.right, right)
+        self._update(node)
+        return node
+
+    def merge(self, other: Treap[X, M]) -> Treap[X, M]:
+        tree = type(self)(self.monoid)
+        tree.root = self._merge(self.root, other.root)
         return tree
 
-
-class AddTreap(Treap[int]):
-    node_cls = AddNode
-
-
-class MinTreap(Treap[Optional[int]]):
-    node_cls = MinNode
+    def _update(self, node: Node[X, M]) -> None:
+        node.length = 1
+        if node.left is not None:
+            node.length += node.left.length
+        if node.right is not None:
+            node.length += node.right.length
 
 
 def main() -> None:

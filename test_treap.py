@@ -1,47 +1,25 @@
-import treap
+import operator
 
 import pytest
 
-
-def test_merge():
-    a = treap.Node(10, 0.5)
-    b = treap.Node(20, 0.25)
-    c = treap.Node.merge(a, b)
-
-    assert c
-    assert c.length == 2
-    assert c.value == 10
-    assert c.left is None
-    assert c.right
-    assert c.right.length == 1
-    assert c.right.value == 20
-
-    d = treap.Node(30, 0.75)
-    e = treap.Node.merge(c, d)
-
-    assert e.length == 3
-    assert e.value == 30
-    assert e.left
-    assert e.left.value == 10
-    assert e.right is None
+import treap
 
 
-def test_split():
-    a = treap.Node(10, 0.5)
-    b = treap.Node(20, 0.25)
-    c = treap.Node.merge(a, b)
-    d = treap.Node(30, 0.75)
-    e = treap.Node.merge(c, d)
-    f, g = treap.Node.split(e, 1)
+@pytest.fixture
+def mo():
+    monoid = treap.Monoid(
+        fx=operator.add,
+        fa=operator.add,
+        fm=operator.add,
+        fp=lambda m, length: m * length,
+        ex=int,
+        em=int,
+        )
+    return monoid
 
-    assert f.length == 1
-    assert f.value == 10
-    assert g.length == 2
-    assert g.value == 30
 
-
-def test_treap():
-    t = treap.Treap()
+def test_mutablesequence(mo):
+    t = treap.Treap(mo)
     assert t.index
     assert len(t) == 0
 
@@ -68,8 +46,8 @@ def test_treap():
     assert t[3] == 3
 
 
-def test_slicing():
-    t = treap.Treap()
+def test_slicing(mo):
+    t = treap.Treap(mo)
     for i in range(10):
         t.append(i)
     subt = t[1:4]
@@ -101,6 +79,48 @@ def test_slicing():
     assert tuple(t) == (0, 2, 4, 6, 8)
 
 
+def test_split(mo):
+    t = treap.Treap(mo)
+
+    a = treap.Node(10, 0, 0.5)
+    b = treap.Node(20, 0, 0.25)
+    c = t._merge(a, b)
+    d = treap.Node(30, 0, 0.75)
+    e = t._merge(c, d)
+    f, g = t._split(e, 1)
+
+    assert f.length == 1
+    assert f.value == 10
+    assert g.length == 2
+    assert g.value == 30
+
+
+def test_merge(mo):
+    t = treap.Treap(mo)
+
+    a = treap.Node(10, 0, 0.5)
+    b = treap.Node(20, 0, 0.25)
+    c = t._merge(a, b)
+
+    assert c
+    assert c.length == 2
+    assert c.value == 10
+    assert c.left is None
+    assert c.right
+    assert c.right.length == 1
+    assert c.right.value == 20
+
+    d = treap.Node(30, 0, 0.75)
+    e = t._merge(c, d)
+
+    assert e.length == 3
+    assert e.value == 30
+    assert e.left
+    assert e.left.value == 10
+    assert e.right is None
+
+
+@pytest.mark.skip
 def test_addtree():
     tree = treap.AddTreap()
 
@@ -109,6 +129,7 @@ def test_addtree():
     assert tree.root.acc == sum(range(10))
 
 
+@pytest.mark.skip
 def test_mintree():
     tree = treap.MinTreap()
 
