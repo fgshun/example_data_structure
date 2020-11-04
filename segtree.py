@@ -37,7 +37,8 @@ class SegumentTree(Generic[X, M]):
         self.length = length
         ex = monoid.ex
         self.data = [ex() for _ in range(len(data) * 4)]
-        self.lazy = [ex() for _ in range(len(data) * 4)]
+        em = monoid.em
+        self.lazy = [em() for _ in range(len(data) * 4)]
         for i, v in enumerate(data):
             self.data[i + length - 1] = v
         fx = monoid.fx
@@ -46,9 +47,9 @@ class SegumentTree(Generic[X, M]):
 
     def eval(self, i: int, length: int) -> None:
         lazy = self.lazy[i]
-        ex = self.monoid.ex()
+        em = self.monoid.em()
 
-        if lazy == ex:
+        if lazy == em:
             return
 
         if i < self.length - 1:
@@ -56,7 +57,7 @@ class SegumentTree(Generic[X, M]):
             self.lazy[i * 2 + 2] = self.monoid.fm(self.lazy[i * 2 + 2], lazy)
 
         self.data[i] = self.monoid.fa(self.data[i], self.monoid.fp(lazy, length))
-        self.lazy[i] = ex
+        self.lazy[i] = em
 
     def update(self, start: int, end: int, value: M) -> None:
         self._update(start, end, value, 0, 0, self.length)
@@ -87,30 +88,45 @@ class SegumentTree(Generic[X, M]):
 
 
 def main() -> None:
-    mo = Monoid(fx=max, 
-                fa=lambda x, m: m,
-                fm=lambda m1, m2: m2,
-                fp=lambda m, length: m,
-                ex=lambda: -1,
-                em=lambda: -1,
-                )
-    mo = Monoid(fx=min, 
-                fa=lambda x, m: m,
-                fm=lambda m1, m2: m2,
-                fp=lambda m, length: m,
-                ex=lambda: 100000,
-                em=lambda: 100000,
-                )
-    mo = Monoid(fx=operator.add, 
+    # mo = Monoid(fx=max,
+    #             fa=lambda x, m: m,
+    #             fm=lambda m1, m2: m2,
+    #             fp=lambda m, length: m,
+    #             ex=lambda: -1,
+    #             em=lambda: -1,
+    #             )
+    # mo = Monoid(fx=min,
+    #             fa=lambda x, m: m,
+    #             fm=lambda m1, m2: m2,
+    #             fp=lambda m, length: m,
+    #             ex=lambda: 1000000000,
+    #             em=lambda: 1000000000,
+    #             )
+    mo = Monoid(fx=operator.add,
                 fa=operator.add,
                 fm=operator.add,
                 fp=lambda m, length: m * length,
                 ex=int,
                 em=int,
                 )
+    # mo = Monoid(fx=operator.add,
+    #             fa=operator.mul,
+    #             fm=operator.mul,
+    #             fp=lambda m, length: m,
+    #             ex=int,
+    #             em=lambda: 1,
+    #             )
+    # mo = Monoid(fx=min,
+    #             fa=operator.mul,
+    #             fm=operator.mul,
+    #             fp=lambda m, length: m,
+    #             ex=lambda: 1000000000,
+    #             em=lambda: 1,
+    #             )
 
-    n, s, e = 100000, 11, 9374
-    # n, s, e = 16, 1, 5
+    # n, s, e = 100000000, 11, 9374
+    n, s, e = 1000000, 11, 9374
+    n, s, e = 16, 1, 5
 
     a: SegumentTree[int, int] = SegumentTree(range(n), mo)
     b = a.query(s, e)
@@ -122,7 +138,7 @@ def main() -> None:
     print(a.query(3, 7))
     print(a.query(5, 7))
     print(a.query(6, 7))
-    a.update(3, 6, 1)
+    a.update(3, 6, 2)
     print(a.query(0, n))
     print(a.query(s, e))
     print(a.query(3, 7))
