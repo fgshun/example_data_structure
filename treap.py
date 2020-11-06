@@ -33,6 +33,7 @@ class Monoid(NamedTuple):
 
 class Node(Generic[X, M]):
     value: X
+    acc: X
     lazy: M
     left: Optional[Node[X, M]]
     right: Optional[Node[X, M]]
@@ -41,6 +42,7 @@ class Node(Generic[X, M]):
 
     def __init__(self, value: X, lazy: M, priority: float) -> None:
         self.value = value
+        self.acc = value
         self.lazy = lazy
         self.left = None
         self.right = None
@@ -56,6 +58,34 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         self.root = None
         self.monoid = monoid
 
+    def _pushup(self, node: Node[X, M]) -> None:
+        node.length = 1
+        node.acc = node.value
+        if node.left is not None:
+            node.length += node.left.length
+            node.acc = self.monoid.fx(node.acc, node.left.acc)
+        if node.right is not None:
+            node.length += node.right.length
+            node.acc = self.monoid.fx(node.acc, node.right.acc)
+
+    def _eval(self, node: Optional[Node[X, M]]) -> None:
+        if node is None:
+            return
+
+        em = self.monoid.em()
+
+        if node.lazy == em:
+            return
+
+        if node.left:
+            node.left.lazy = self.monoid.fm(node.left.lazy, node.lazy)
+        if node.right:
+            node.right.lazy = self.monoid.fm(node.right.lazy, node.lazy)
+
+        node.value = self.monoid.fa(node.value, node.lazy)
+        node.acc = self.monoid.fa(node.acc, self.monoid.fp(node.lazy, node.length))
+        node.lazy = em
+
     def _find(self, index: int) -> Node[X, M]:
         if not (0 <= index < len(self)):
             raise IndexError()
@@ -65,13 +95,24 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             if cnt > index:
                 node = node.left
             elif cnt == index:
+                self._eval(node)
                 return node
             else:
                 node = node.right
                 index -= cnt + 1
-        if node is None:
-            raise IndexError()
-        return node
+        raise IndexError()
+
+    def update(self, start: int, end: int, value: M) -> None:
+        if self.root is None:
+            return
+        left, temp = self._split(self.root, start)
+        center, right = self._split(temp, end - start)
+
+        assert center
+        center.lazy = self.monoid.fm(center.lazy, value)
+
+        temp = self._merge(center, right)
+        self.root = self._merge(left, temp)
 
     @overload
     def __getitem__(self, index: int) -> X:
@@ -84,12 +125,17 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
     def __getitem__(self, index):
         if isinstance(index, int):
             node = self._find(index)
+            self._eval(node)
+            self._pushup(node)
             return node.value
         elif isinstance(index, slice):
             tree = type(self)(self.monoid)
             start, stop, step = index.indices(len(self))
             for i in range(start, stop, step):
-                tree.append(self._find(i).value)
+                node = self._find(i)
+                self._eval(node)
+                self._pushup(node)
+                tree.append(node.value)
             return tree
         raise IndexError()
 
@@ -102,6 +148,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         ...
 
     def __setitem__(self, index, value):
+        # TODO: 置換できるとはかぎらない、これ、 MutableSequence じゃないのでは？
         if isinstance(index, int):
             node = self._find(index)
             node.value = value
@@ -166,6 +213,8 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         if node is None:
             return None, None
 
+        self._eval(node)
+
         left: Optional[Node[X, M]]
         center: Optional[Node[X, M]]
         right: Optional[Node[X, M]]
@@ -175,12 +224,12 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             center, right = self._split(node.right, index - length - 1)
             left = node
             left.right = center
-            self._update(left)
+            self._pushup(left)
         else:
             left, center = self._split(node.left, index)
             right = node
             right.left = center
-            self._update(right)
+            self._pushup(right)
 
         return left, right
 
@@ -196,26 +245,22 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         if right is None:
             return left
 
+        self._eval(left)
+        self._eval(right)
+
         if left.priority <= right.priority:
             node = right
             node.left = self._merge(left, node.left)
         else:
             node = left
             node.right = self._merge(node.right, right)
-        self._update(node)
+        self._pushup(node)
         return node
 
     def merge(self, other: Treap[X, M]) -> Treap[X, M]:
         tree = type(self)(self.monoid)
         tree.root = self._merge(self.root, other.root)
         return tree
-
-    def _update(self, node: Node[X, M]) -> None:
-        node.length = 1
-        if node.left is not None:
-            node.length += node.left.length
-        if node.right is not None:
-            node.length += node.right.length
 
 
 def main() -> None:

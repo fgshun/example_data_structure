@@ -120,18 +120,32 @@ def test_merge(mo):
     assert e.right is None
 
 
-@pytest.mark.skip
-def test_addtree():
-    tree = treap.AddTreap()
+def test_addtree(mo):
+    t = treap.Treap(mo)
 
-    tree.extend(range(10))
-    assert tuple(tree) == tuple(range(10))
-    assert tree.root.acc == sum(range(10))
+    t.extend(range(10))
+    assert t.root.acc == sum(range(10))
+    assert tuple(t) == tuple(range(10))
+
+    t.update(1, 5, 10)
+    assert t.root.acc == sum(range(10)) + 40
+    assert tuple(t) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
+
+    t.update(2, 4, 100)
+    assert t.root.acc == sum(range(10)) + 40 + 200
+    assert tuple(t) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
 
 
-@pytest.mark.skip
 def test_mintree():
-    tree = treap.MinTreap()
+    mo = treap.Monoid(
+        fx=min,
+        fa=lambda x, m: m,
+        fm=lambda m1, m2: m2,
+        fp=lambda m, length: m,
+        ex=lambda: 1000000000,
+        em=lambda: 1000000000,
+        )
+    tree = treap.Treap(mo)
 
     tree.extend(range(10))
     assert tuple(tree) == tuple(range(10))
