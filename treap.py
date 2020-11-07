@@ -4,8 +4,8 @@ import operator
 import sys
 from functools import reduce
 from random import Random
-from typing import (Any, Callable, ClassVar, Generic, Iterable, Iterator, NamedTuple,
-                    MutableSequence, Optional, Tuple, Type, TypeVar, overload, Collection)
+from typing import (Callable, Generic, Iterable, Iterator, MutableSequence,
+                    NamedTuple, Optional, Tuple, TypeVar, overload)
 
 
 class TreapError(Exception):
@@ -64,11 +64,11 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         node.length = 1
         node.acc = node.value
         if node.left is not None:
-            # self._eval(node.left)
+            self._eval(node.left)
             node.length += node.left.length
             node.acc = self.monoid.fx(node.acc, node.left.acc)
         if node.right is not None:
-            # self._eval(node.right)
+            self._eval(node.right)
             node.length += node.right.length
             node.acc = self.monoid.fx(node.acc, node.right.acc)
 
@@ -99,7 +99,8 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             if cnt > index:
                 node = node.left
             elif cnt == index:
-                self._eval(node)
+                # self._eval(node)  # XXX
+                # self._popup(node)  # XXX
                 return node
             else:
                 node = node.right
@@ -109,8 +110,8 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
     def update(self, start: int, end: int, value: M) -> None:
         if self.root is None:
             return
-        left, temp = self._split(self.root, start)
-        center, right = self._split(temp, end - start)
+        temp, right = self._split(self.root, end)
+        left, center = self._split(temp, start)
 
         assert center
         center.lazy = self.monoid.fm(center.lazy, value)
@@ -135,12 +136,8 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         elif isinstance(index, slice):
             start, stop, step = index.indices(len(self))
             if step == 1:
-                left, temp = self._split(self.root, start - 1)
-                center, right = self._split(temp, stop - start)
-                # temp, right = self._split(self.root, stop)
-                # left, center = self._split(temp, start - 1)
-                self._eval(center)
-                self._pushup(center)
+                temp, right = self._split(self.root, stop)
+                left, center = self._split(temp, start)
                 acc = center.acc if center else self.monoid.ex()
                 temp = self._merge(left, center)
                 self.root = self._merge(temp, right)
@@ -174,7 +171,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             return tree
         raise IndexError()
 
-    def __setitem__(self, index, value):   
+    def __setitem__(self, index, value):
         raise NotImplementedError()
 
     def _erase(self, node: Optional[Node[X, M]], start: int, end: int) -> Optional[Node[X, M]]:
@@ -224,7 +221,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             yield self[index]
 
     def __reversed__(self) -> Iterator[X]:
-        for index in range(len(self) -1, -1, -1):
+        for index in range(len(self) - 1, -1, -1):
             yield self[index]
 
     def _split(self, node: Optional[Node[X, M]], index: int) -> Tuple[Optional[Node[X, M]], Optional[Node[X, M]]]:

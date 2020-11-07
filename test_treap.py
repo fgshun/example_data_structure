@@ -183,16 +183,18 @@ def test_addtree(mo):
     t = treap.Treap(mo, gen)
 
     t.extend(range(10))
-    assert t.root.acc == sum(range(10))
     assert tuple(t) == tuple(range(10))
+    assert t.get_acc(slice(None, None)) == sum(range(10))
+    assert t.get_acc(slice(1, 5)) == sum(range(1, 5))
 
     t.update(1, 5, 10)
-    tuple(t)
+    # assert tuple(t) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
     assert t.get_acc(slice(None, None)) == sum(range(10)) + 40
     assert t.get_acc(slice(1, 5)) == sum(range(1, 5)) + 40
     assert tuple(t) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
 
     t.update(2, 4, 100)
+    # assert tuple(t) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
     assert t.get_acc(slice(None, None)) == sum(range(10)) + 40 + 200
     assert tuple(t) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
 
