@@ -1,4 +1,5 @@
 import operator
+import random
 
 import pytest
 
@@ -63,20 +64,15 @@ def test_slicing(mo):
     assert tuple(t) == tuple(range(10))
 
     assert subt2[1] == 3
-    subt2[1] = 100
-    assert subt2[1] == 100
-
-    with pytest.raises(ValueError):
-        t[1::2] = (1, 2, 3, 4)
-    with pytest.raises(ValueError):
-        t[1::2] = (1, 2, 3, 4, 5, 6)
-    t[1::2] = (100, 101, 102, 103, 104)
-    assert tuple(t) == (0, 100, 2, 101, 4, 102, 6, 103, 8, 104)
+    subt2.update(1, 2, 100)
+    assert subt2[1] == 103
 
     del subt2[1]
     assert tuple(subt2) == (1, 5)
     del t[1::2]
     assert tuple(t) == (0, 2, 4, 6, 8)
+    del t[1:4]
+    assert tuple(t) == (0, 8)
 
 
 def test_split(mo):
@@ -120,19 +116,84 @@ def test_merge(mo):
     assert e.right is None
 
 
+def test_acc(mo):
+    gen = random.Random(1)
+    t = treap.Treap(mo, gen)
+    t.extend([1, 2, 3])
+    assert t.root.value == 2
+    assert t.root.acc == 6
+    assert t.root.left.value == 1
+    assert t.root.left.acc == 1
+    assert t.root.right.value == 3
+    assert t.root.right.acc == 3
+    t.update(0, 1, 10)
+    assert t.root.value == 2
+    assert t.root.acc == 16
+    assert t.root.left.value == 11
+    assert t.root.left.acc == 11
+    assert t.root.right.value == 3
+    assert t.root.right.acc == 3
+    t.update(2, 3, 100)
+    assert t.root.value == 2
+    assert t.root.acc == 116
+    assert t.root.left.value == 11
+    assert t.root.left.acc == 11
+    assert t.root.right.value == 103
+    assert t.root.right.acc == 103
+    t.update(1, 2, 1000)
+    assert t.root.value == 1002
+    assert t.root.acc == 1116
+    assert t.root.left.value == 11
+    assert t.root.left.acc == 11
+    assert t.root.right.value == 103
+    assert t.root.right.acc == 103
+    t.update(0, 3, 10000)
+    assert t.root.lazy != 0
+    t._eval(t.root)
+    assert t.root.lazy == 0
+    assert t.root.value == 11002
+    assert t.root.acc == 31116
+    assert t.root.left.lazy != 0
+    t._eval(t.root.left)
+    assert t.root.left.lazy == 0
+    assert t.root.left.value == 10011
+    assert t.root.left.acc == 10011
+    assert t.root.right.lazy != 0
+    t._eval(t.root.right)
+    assert t.root.right.lazy == 0
+    assert t.root.right.value == 10103  # XXX: 10103 -> 103
+    assert t.root.right.acc == 10103  # XXX: 10103 -> 103
+
+    gen = random.Random(4)
+    t = treap.Treap(mo, gen)
+    t.extend([1, 2, 3])
+    assert t.root.value == 3
+    t._eval(t.root)
+    assert t.root.acc == 6
+    t._eval(t.root.left)
+    assert t.root.left.value == 1
+    assert t.root.left.acc == 3
+    t._eval(t.root.right)
+    assert t.root.left.right.value == 2
+    assert t.root.left.right.acc == 2
+
+
 def test_addtree(mo):
-    t = treap.Treap(mo)
+    gen = random.Random(10)
+    t = treap.Treap(mo, gen)
 
     t.extend(range(10))
     assert t.root.acc == sum(range(10))
     assert tuple(t) == tuple(range(10))
 
     t.update(1, 5, 10)
-    assert t.root.acc == sum(range(10)) + 40
+    tuple(t)
+    assert t.get_acc(slice(None, None)) == sum(range(10)) + 40
+    assert t.get_acc(slice(1, 5)) == sum(range(1, 5)) + 40
     assert tuple(t) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
 
     t.update(2, 4, 100)
-    assert t.root.acc == sum(range(10)) + 40 + 200
+    assert t.get_acc(slice(None, None)) == sum(range(10)) + 40 + 200
     assert tuple(t) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
 
 
