@@ -8,7 +8,8 @@ from typing import (Callable, Deque, Generic, Iterable, Iterator,
                     MutableSequence, NamedTuple, Optional, Tuple, TypeVar,
                     overload)
 
-class TreapError(Exception):
+
+class RBSTError(Exception):
     pass
 
 
@@ -38,19 +39,17 @@ class Node(Generic[X, M]):
     left: Optional[Node[X, M]]
     right: Optional[Node[X, M]]
     length: int
-    priority: float
 
-    def __init__(self, value: X, lazy: M, priority: float) -> None:
+    def __init__(self, value: X, lazy: M) -> None:
         self.value = value
         self.acc = value
         self.lazy = lazy
         self.left = None
         self.right = None
         self.length = 1
-        self.priority = priority
 
 
-class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
+class RBST(MutableSequence[X], Iterable[X], Generic[X, M]):
     random: Random = Random()
     root: Optional[Node[X, M]]
 
@@ -152,7 +151,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         ...
 
     @overload
-    def __getitem__(self, index: slice) -> Treap[X, M]:
+    def __getitem__(self, index: slice) -> RBST[X, M]:
         ...
 
     def __getitem__(self, index):
@@ -205,16 +204,16 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
 
     def insert(self, index: int, value: X) -> None:
         left, right = self._split(self.root, index)
-        temp = self._merge(left, Node(value, self.monoid.ex(), self.random.random()))
+        temp = self._merge(left, Node(value, self.monoid.ex()))
         new_node = self._merge(temp, right)
         if new_node is None:
-            raise TreapError()
+            raise RBSTError()
         self.root = new_node
 
     def append(self, value: X) -> None:
-        new_node = self._merge(self.root, Node(value, self.monoid.ex(), self.random.random()))
+        new_node = self._merge(self.root, Node(value, self.monoid.ex()))
         if new_node is None:
-            raise TreapError()
+            raise RBSTError()
         self.root = new_node
 
     def _debug_node(self) -> None:
@@ -276,7 +275,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
 
         return left, right
 
-    def split(self, index: int) -> Tuple[Treap[X, M], Treap[X, M]]:
+    def split(self, index: int) -> Tuple[RBST[X, M], RBST[X, M]]:
         left = type(self)(self.monoid)
         right = type(self)(self.monoid)
         left.root, right.root = self._split(self.root, index)
@@ -291,7 +290,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         self._eval(left)
         self._eval(right)
 
-        if left.priority <= right.priority:
+        if left.length / (left.length + right.length) < self.random.random():
             node = right
             node.left = self._merge(left, node.left)
         else:
@@ -300,7 +299,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         self._propagate(node)
         return node
 
-    def merge(self, other: Treap[X, M]) -> Treap[X, M]:
+    def merge(self, other: RBST[X, M]) -> RBST[X, M]:
         tree = type(self)(self.monoid)
         tree.root = self._merge(self.root, other.root)
         return tree
