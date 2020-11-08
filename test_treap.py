@@ -1,4 +1,5 @@
 import operator
+import random
 
 import pytest
 
@@ -7,15 +8,7 @@ import treap
 
 @pytest.fixture
 def mo():
-    monoid = treap.Monoid(
-        fx=operator.add,
-        fa=operator.add,
-        fm=operator.add,
-        fp=lambda m, length: m * length,
-        ex=int,
-        em=int,
-        )
-    return monoid
+    return treap.accumulate_monoid
 
 
 def test_mutablesequence(mo):
@@ -33,6 +26,9 @@ def test_mutablesequence(mo):
 
     for i, v in enumerate(t):
         assert i == v
+
+    for i, v in enumerate(reversed(t)):
+        assert i == 10 - 1 - v
 
     t.insert(3, 100)
     assert len(t) == 11
@@ -63,20 +59,15 @@ def test_slicing(mo):
     assert tuple(t) == tuple(range(10))
 
     assert subt2[1] == 3
-    subt2[1] = 100
-    assert subt2[1] == 100
-
-    with pytest.raises(ValueError):
-        t[1::2] = (1, 2, 3, 4)
-    with pytest.raises(ValueError):
-        t[1::2] = (1, 2, 3, 4, 5, 6)
-    t[1::2] = (100, 101, 102, 103, 104)
-    assert tuple(t) == (0, 100, 2, 101, 4, 102, 6, 103, 8, 104)
+    subt2.update(1, 2, 100)
+    assert subt2[1] == 103
 
     del subt2[1]
     assert tuple(subt2) == (1, 5)
     del t[1::2]
     assert tuple(t) == (0, 2, 4, 6, 8)
+    del t[1:4]
+    assert tuple(t) == (0, 8)
 
 
 def test_split(mo):
@@ -120,35 +111,119 @@ def test_merge(mo):
     assert e.right is None
 
 
-def test_addtree(mo):
-    t = treap.Treap(mo)
+def test_acc(mo):
+    gen = random.Random(1)
+    t = treap.Treap(mo, gen)
+    t.extend([1, 2, 3])
+    assert t.root.value == 2
+    assert t.root.acc == 6
+    assert t.root.left.value == 1
+    assert t.root.left.acc == 1
+    assert t.root.right.value == 3
+    assert t.root.right.acc == 3
+    t.update(0, 1, 10)
+    assert t.root.value == 2
+    assert t.root.acc == 16
+    assert t.root.left.value == 11
+    assert t.root.left.acc == 11
+    assert t.root.right.value == 3
+    assert t.root.right.acc == 3
+    t.update(2, 3, 100)
+    assert t.root.value == 2
+    assert t.root.acc == 116
+    assert t.root.left.value == 11
+    assert t.root.left.acc == 11
+    assert t.root.right.value == 103
+    assert t.root.right.acc == 103
+    t.update(1, 2, 1000)
+    assert t.root.value == 1002
+    assert t.root.acc == 1116
+    assert t.root.left.value == 11
+    assert t.root.left.acc == 11
+    assert t.root.right.value == 103
+    assert t.root.right.acc == 103
+    t.update(0, 3, 10000)
+    assert t.root.lazy != 0
+    t._eval(t.root)
+    assert t.root.lazy == 0
+    assert t.root.value == 11002
+    assert t.root.acc == 31116
+    assert t.root.left.lazy != 0
+    t._eval(t.root.left)
+    assert t.root.left.lazy == 0
+    assert t.root.left.value == 10011
+    assert t.root.left.acc == 10011
+    assert t.root.right.lazy != 0
+    t._eval(t.root.right)
+    assert t.root.right.lazy == 0
+    assert t.root.right.value == 10103
+    assert t.root.right.acc == 10103
 
-    t.extend(range(10))
-    assert t.root.acc == sum(range(10))
-    assert tuple(t) == tuple(range(10))
+    gen = random.Random(4)
+    t = treap.Treap(mo, gen)
+    t.extend([1, 2, 3])
+    assert t.root.value == 3
+    t._eval(t.root)
+    assert t.root.acc == 6
+    t._eval(t.root.left)
+    assert t.root.left.value == 1
+    assert t.root.left.acc == 3
+    t._eval(t.root.right)
+    assert t.root.left.right.value == 2
+    assert t.root.left.right.acc == 2
 
+
+@pytest.mark.parametrize(
+    'seed',
+    range(30)
+)
+def test_addtree(seed):
+    gen = random.Random(seed)
+    t = treap.Treap(treap.accumulate_monoid, gen)
+
+    n = 100
+    sum_n = sum(range(n))
+    t.extend(range(n))
+    assert t.get_acc(slice(None, None)) == sum_n
+    assert t.get_acc(slice(1, 5)) == sum(range(1, 5))
+    assert tuple(t[:10]) == tuple(range(10))
+
+    # t._debug_node()
     t.update(1, 5, 10)
-    assert t.root.acc == sum(range(10)) + 40
-    assert tuple(t) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
+    # t._debug_node()
+    assert t.get_acc(slice(None, None)) == sum_n + 40
+    assert t.get_acc(slice(1, 5)) == sum(range(1, 5)) + 40
+    assert tuple(t[:10]) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
 
     t.update(2, 4, 100)
-    assert t.root.acc == sum(range(10)) + 40 + 200
-    assert tuple(t) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
+    assert t.get_acc(slice(None, None)) == sum_n + 40 + 200
+    assert tuple(t[:10]) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
 
 
-def test_mintree():
-    mo = treap.Monoid(
-        fx=min,
-        fa=lambda x, m: m,
-        fm=lambda m1, m2: m2,
-        fp=lambda m, length: m,
-        ex=lambda: 1000000000,
-        em=lambda: 1000000000,
-        )
-    tree = treap.Treap(mo)
+@pytest.mark.parametrize(
+    'seed',
+    range(30)
+)
+def test_mintree(seed):
+    tree = treap.Treap(treap.rmq_monoid, random.Random(seed))
 
-    tree.extend(range(10))
-    assert tuple(tree) == tuple(range(10))
+    n = 100
+    tree.extend(range(n))
+    assert tree.get_acc(slice(None)) == 0
+    assert tree.get_acc(slice(3, 8)) == 3
+    assert tree.get_acc(slice(3, 6)) == 3
+    tree.update(3, 6, 10)
+    assert tree.get_acc(slice(None)) == 0
+    assert tree.get_acc(slice(3, 8)) == 6
+    assert tree.get_acc(slice(3, 6)) == 10
+
+
+def test_mintree_inner():
+    tree = treap.Treap(treap.rmq_monoid, random.Random(0))
+
+    n = 100
+    tree.extend(range(n))
+    assert tuple(tree[:10]) == tuple(range(10))
     assert tree.root.acc == 0
 
     left, temp = tree.split(3)

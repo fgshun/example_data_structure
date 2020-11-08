@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import collections
 import operator
-import sys
-from functools import reduce
+from functools import partial, reduce
 from random import Random
-from typing import (Any, Callable, ClassVar, Generic, Iterable, Iterator, NamedTuple,
-                    MutableSequence, Optional, Tuple, Type, TypeVar, overload)
+from typing import (Callable, Deque, Generic, Iterable, Iterator,
+                    MutableSequence, NamedTuple, Optional, Tuple, TypeVar,
+                    overload)
 
 
 class TreapError(Exception):
@@ -51,20 +52,24 @@ class Node(Generic[X, M]):
 
 
 class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
-    random: ClassVar[Random] = Random()
+    random: Random = Random()
     root: Optional[Node[X, M]]
 
-    def __init__(self, monoid: Monoid) -> None:
+    def __init__(self, monoid: Monoid, random_generagor: Optional[Random] = None) -> None:
         self.root = None
         self.monoid = monoid
+        if random_generagor:
+            self.random = random_generagor
 
     def _pushup(self, node: Node[X, M]) -> None:
         node.length = 1
         node.acc = node.value
         if node.left is not None:
+            self._eval(node.left)
             node.length += node.left.length
             node.acc = self.monoid.fx(node.acc, node.left.acc)
         if node.right is not None:
+            self._eval(node.right)
             node.length += node.right.length
             node.acc = self.monoid.fx(node.acc, node.right.acc)
 
@@ -102,17 +107,46 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
                 index -= cnt + 1
         raise IndexError()
 
+    def _find_nodes(self, index: slice) -> Iterator[Node[X, M]]:
+        return map(self._find, range(*index.indices(len(self))))
+
     def update(self, start: int, end: int, value: M) -> None:
         if self.root is None:
             return
-        left, temp = self._split(self.root, start)
-        center, right = self._split(temp, end - start)
+        temp, right = self._split(self.root, end)
+        left, center = self._split(temp, start)
 
         assert center
         center.lazy = self.monoid.fm(center.lazy, value)
 
         temp = self._merge(center, right)
         self.root = self._merge(left, temp)
+
+    @overload
+    def get_acc(self, index: int) -> X:
+        ...
+
+    @overload
+    def get_acc(self, index: slice) -> X:
+        ...
+
+    def get_acc(self, index):
+        if isinstance(index, int):
+            return self[index]
+        elif isinstance(index, slice):
+            if index.step is None or index.step == 1:
+                start, stop = index.indices(len(self))[:2]
+                temp, right = self._split(self.root, stop)
+                left, center = self._split(temp, start)
+                acc = center.acc if center else self.monoid.ex()
+                temp = self._merge(left, center)
+                self.root = self._merge(temp, right)
+                return acc
+            else:
+                nodes = self._find_nodes(index)
+                values = map(operator.attrgetter('value'), nodes)
+                return reduce(self.monoid.fx, values, self.monoid.ex())
+        raise IndexError()
 
     @overload
     def __getitem__(self, index: int) -> X:
@@ -125,51 +159,21 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
     def __getitem__(self, index):
         if isinstance(index, int):
             node = self._find(index)
-            self._eval(node)
-            self._pushup(node)
             return node.value
         elif isinstance(index, slice):
             tree = type(self)(self.monoid)
-            start, stop, step = index.indices(len(self))
-            for i in range(start, stop, step):
-                node = self._find(i)
-                self._eval(node)
-                self._pushup(node)
+            for node in self._find_nodes(index):
                 tree.append(node.value)
             return tree
         raise IndexError()
 
-    @overload
-    def __setitem__(self, index: int, value: X) -> None:
-        ...
-
-    @overload
-    def __setitem__(self, index: slice, value: Iterable[X]) -> None:
-        ...
-
     def __setitem__(self, index, value):
-        # TODO: 置換できるとはかぎらない、これ、 MutableSequence じゃないのでは？
-        if isinstance(index, int):
-            node = self._find(index)
-            node.value = value
-            return
-        elif isinstance(index, slice):
-            values = tuple(value)
-            index2 = range(*index.indices(len(self)))
-            if len(index2) != len(values):
-                raise ValueError('attempt to assign sequence of size {} to extended slice of size {}'.format(
-                                 len(values), len(index2)))
-            for i, v in zip(index2, values):
-                node = self._find(i)
-                node.value = v
-            return
+        raise NotImplementedError()
 
-        raise IndexError()
-
-    def _erase(self, node: Optional[Node[X, M]], index: int) -> Optional[Node[X, M]]:
-        left, right = self._split(node, index + 1)
-        temp = self._split(left, index)[0]
-        new_node = self._merge(temp, right)
+    def _erase(self, node: Optional[Node[X, M]], start: int, end: int) -> Optional[Node[X, M]]:
+        temp, right = self._split(node, end)
+        left = self._split(temp, start)[0]
+        new_node = self._merge(left, right)
         return new_node
 
     @overload
@@ -184,11 +188,14 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         if isinstance(index, int):
             if not (0 <= index < len(self)):
                 raise IndexError()
-            self.root = self._erase(self.root, index)
+            self.root = self._erase(self.root, index, index + 1)
         elif isinstance(index, slice):
             start, stop, step = index.indices(len(self))
-            for i in reversed(range(start, stop, step)):
-                self.root = self._erase(self.root, i)
+            if step == 1:
+                self.root = self._erase(self.root, start, stop)
+            else:
+                for i in reversed(range(start, stop, step)):
+                    self.root = self._erase(self.root, i, i + 1)
         else:
             raise IndexError()
 
@@ -205,9 +212,40 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             raise TreapError()
         self.root = new_node
 
+    def _debug_node(self) -> None:
+        if self.root is None:
+            return
+        q: Deque[Tuple[Node[X, M], int]] = collections.deque()
+        q.append((self.root, 0))
+        while q:
+            node, depth = q.popleft()
+            if node.left:
+                q.append((node.left, depth + 1))
+            if node.right:
+                q.append((node.right, depth + 1))
+
+            depth_str = '-' * depth
+            print(f'{depth_str} {node.value} {node.acc} {node.lazy}')
+
     def __iter__(self) -> Iterator[X]:
-        for index in range(len(self)):
-            yield self[index]
+        return self._iter_inner(self.root)
+
+    def _iter_inner(self, node: Optional[Node[X, M]]) -> Iterator[X]:
+        if node is None:
+            return
+        yield from self._iter_inner(node.left)
+        yield node.value
+        yield from self._iter_inner(node.right)
+
+    def __reversed__(self) -> Iterator[X]:
+        return self._reverse_inner(self.root)
+
+    def _reverse_inner(self, node: Optional[Node[X, M]]) -> Iterator[X]:
+        if node is None:
+            return
+        yield from self._reverse_inner(node.right)
+        yield node.value
+        yield from self._reverse_inner(node.left)
 
     def _split(self, node: Optional[Node[X, M]], index: int) -> Tuple[Optional[Node[X, M]], Optional[Node[X, M]]]:
         if node is None:
@@ -261,6 +299,25 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         tree = type(self)(self.monoid)
         tree.root = self._merge(self.root, other.root)
         return tree
+
+
+accumulate_monoid = Monoid(
+    fx=operator.add,  # lambda x1, x2: x1 + x2
+    fa=operator.add,  # lambda x, m: x + m
+    fm=operator.add,  # lambda m1, m2: m1 + m2
+    fp=operator.mul,  # lambda m, length: m * length,
+    ex=int,
+    em=int,
+    )
+
+rmq_monoid = Monoid(
+    fx=min,  # lambda x1, x2: x1 if x1 <= x2 else x2
+    fa=lambda x, m: m,
+    fm=lambda m1, m2: m2,
+    fp=lambda m, length: m,
+    ex=lambda: 1000000000,
+    em=lambda: 1000000000,
+    )
 
 
 def main() -> None:
