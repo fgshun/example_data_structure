@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import collections
 import operator
-import sys
 from functools import reduce
 from random import Random
 from typing import (Callable, Generic, Iterable, Iterator, MutableSequence,
-                    NamedTuple, Optional, Tuple, TypeVar, overload)
+                    NamedTuple, Optional, Tuple, TypeVar, overload, Deque)
 
 
 class TreapError(Exception):
@@ -99,13 +99,15 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             if cnt > index:
                 node = node.left
             elif cnt == index:
-                # self._eval(node)  # XXX
-                # self._popup(node)  # XXX
+                self._eval(node)
                 return node
             else:
                 node = node.right
                 index -= cnt + 1
         raise IndexError()
+
+    def _find_nodes(self, index: slice) -> Iterator[Node[X, M]]:
+        return map(self._find, range(*index.indices(len(self))))
 
     def update(self, start: int, end: int, value: M) -> None:
         if self.root is None:
@@ -129,13 +131,10 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
 
     def get_acc(self, index):
         if isinstance(index, int):
-            node = self._find(index)
-            self._eval(node)
-            self._pushup(node)
-            return node.acc
+            return self[index]
         elif isinstance(index, slice):
-            start, stop, step = index.indices(len(self))
-            if step == 1:
+            if index.step is None or index.step == 1:
+                start, stop = index.indices(len(self))[:2]
                 temp, right = self._split(self.root, stop)
                 left, center = self._split(temp, start)
                 acc = center.acc if center else self.monoid.ex()
@@ -143,7 +142,9 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
                 self.root = self._merge(temp, right)
                 return acc
             else:
-                return reduce(self.monoid.fx, self[start:stop:step], initial=self.monoid.ex())
+                nodes = self._find_nodes(index)
+                values = map(operator.attrgetter('value'), nodes)
+                return reduce(self.monoid.fx, values, self.monoid.ex())
         raise IndexError()
 
     @overload
@@ -157,16 +158,10 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
     def __getitem__(self, index):
         if isinstance(index, int):
             node = self._find(index)
-            self._eval(node)
-            self._pushup(node)
             return node.value
         elif isinstance(index, slice):
             tree = type(self)(self.monoid)
-            start, stop, step = index.indices(len(self))
-            for i in range(start, stop, step):
-                node = self._find(i)
-                self._eval(node)
-                self._pushup(node)
+            for node in self._find_nodes(index):
                 tree.append(node.value)
             return tree
         raise IndexError()
@@ -215,6 +210,21 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         if new_node is None:
             raise TreapError()
         self.root = new_node
+
+    def _debug_node(self) -> None:
+        if self.root is None:
+            return
+        q: Deque[Tuple[Node[X, M], int]] = collections.deque()
+        q.append((self.root, 0))
+        while q:
+            node, depth = q.popleft()
+            if node.left:
+                q.append((node.left, depth + 1))
+            if node.right:
+                q.append((node.right, depth + 1))
+
+            depth_str = '-' * depth
+            print(f'{depth_str} {node.value} {node.acc} {node.lazy}')
 
     def __iter__(self) -> Iterator[X]:
         for index in range(len(self)):

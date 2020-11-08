@@ -178,25 +178,31 @@ def test_acc(mo):
     assert t.root.left.right.acc == 2
 
 
-def test_addtree(mo):
-    gen = random.Random(10)
+@pytest.mark.parametrize(
+    'seed',
+    range(30)
+)
+def test_addtree(mo, seed):
+    gen = random.Random(seed)
     t = treap.Treap(mo, gen)
 
-    t.extend(range(10))
-    assert tuple(t) == tuple(range(10))
-    assert t.get_acc(slice(None, None)) == sum(range(10))
+    n = 10  # 1000
+    sum_n = sum(range(n))
+    t.extend(range(n))
+    assert t.get_acc(slice(None, None)) == sum_n
     assert t.get_acc(slice(1, 5)) == sum(range(1, 5))
+    assert tuple(t[:10]) == tuple(range(10))
 
+    # t._debug_node()
     t.update(1, 5, 10)
-    # assert tuple(t) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
-    assert t.get_acc(slice(None, None)) == sum(range(10)) + 40
+    # t._debug_node()
+    assert t.get_acc(slice(None, None)) == sum_n + 40
     assert t.get_acc(slice(1, 5)) == sum(range(1, 5)) + 40
-    assert tuple(t) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
+    assert tuple(t[:10]) == (0, 11, 12, 13, 14, 5, 6, 7, 8, 9)
 
     t.update(2, 4, 100)
-    # assert tuple(t) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
-    assert t.get_acc(slice(None, None)) == sum(range(10)) + 40 + 200
-    assert tuple(t) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
+    assert t.get_acc(slice(None, None)) == sum_n + 40 + 200
+    assert tuple(t[:10]) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
 
 
 def test_mintree():
