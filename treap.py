@@ -8,7 +8,6 @@ from typing import (Callable, Deque, Generic, Iterable, Iterator,
                     MutableSequence, NamedTuple, Optional, Tuple, TypeVar,
                     overload)
 
-
 class TreapError(Exception):
     pass
 
@@ -96,11 +95,11 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             raise IndexError()
         node = self.root
         while node:
+            self._eval(node)
             cnt = node.left.length if node.left else 0
             if cnt > index:
                 node = node.left
             elif cnt == index:
-                self._eval(node)
                 return node
             else:
                 node = node.right
