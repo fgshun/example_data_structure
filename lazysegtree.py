@@ -21,7 +21,7 @@ class Monoid(NamedTuple):
     em: EM
 
 
-class SegumentTree(Generic[X, M]):
+class LazySegumentTree(Generic[X, M]):
     """セグメント木"""
     monoid: Monoid
     length: int
@@ -128,7 +128,7 @@ def main() -> None:
     n, s, e = 1000000, 11, 9374
     n, s, e = 16, 1, 5
 
-    a: SegumentTree[int, int] = SegumentTree(range(n), mo)
+    a: LazySegumentTree[int, int] = LazySegumentTree(range(n), mo)
     b = a.query(s, e)
 
     from functools import reduce
