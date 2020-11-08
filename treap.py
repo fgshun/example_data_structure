@@ -211,6 +211,12 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             raise TreapError()
         self.root = new_node
 
+    def append(self, value: X) -> None:
+        new_node = self._merge(self.root, Node(value, self.monoid.ex(), self.random.random()))
+        if new_node is None:
+            raise TreapError()
+        self.root = new_node
+
     def _debug_node(self) -> None:
         if self.root is None:
             return
