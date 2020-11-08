@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import collections
 import operator
-from functools import reduce
+from functools import partial, reduce
 from random import Random
-from typing import (Callable, Generic, Iterable, Iterator, MutableSequence,
-                    NamedTuple, Optional, Tuple, TypeVar, overload, Deque)
+from typing import (Callable, Deque, Generic, Iterable, Iterator,
+                    MutableSequence, NamedTuple, Optional, Tuple, TypeVar,
+                    overload)
 
 
 class TreapError(Exception):
@@ -227,12 +228,24 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             print(f'{depth_str} {node.value} {node.acc} {node.lazy}')
 
     def __iter__(self) -> Iterator[X]:
-        for index in range(len(self)):
-            yield self[index]
+        return self._iter_inner(self.root)
+
+    def _iter_inner(self, node: Optional[Node[X, M]]) -> Iterator[X]:
+        if node is None:
+            return
+        yield from self._iter_inner(node.left)
+        yield node.value
+        yield from self._iter_inner(node.right)
 
     def __reversed__(self) -> Iterator[X]:
-        for index in range(len(self) - 1, -1, -1):
-            yield self[index]
+        return self._reverse_inner(self.root)
+
+    def _reverse_inner(self, node: Optional[Node[X, M]]) -> Iterator[X]:
+        if node is None:
+            return
+        yield from self._reverse_inner(node.right)
+        yield node.value
+        yield from self._reverse_inner(node.left)
 
     def _split(self, node: Optional[Node[X, M]], index: int) -> Tuple[Optional[Node[X, M]], Optional[Node[X, M]]]:
         if node is None:
@@ -286,6 +299,25 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         tree = type(self)(self.monoid)
         tree.root = self._merge(self.root, other.root)
         return tree
+
+
+accumulate_monoid = Monoid(
+    fx=operator.add,  # lambda x1, x2: x1 + x2
+    fa=operator.add,  # lambda x, m: x + m
+    fm=operator.add,  # lambda m1, m2: m1 + m2
+    fp=operator.mul,  # lambda m, length: m * length,
+    ex=int,
+    em=int,
+    )
+
+rmq_monoid = Monoid(
+    fx=min,  # lambda x1, x2: x1 if x1 <= x2 else x2
+    fa=lambda x, m: m,
+    fm=lambda m1, m2: m2,
+    fp=lambda m, length: m,
+    ex=lambda: 1000000000,
+    em=lambda: 1000000000,
+    )
 
 
 def main() -> None:

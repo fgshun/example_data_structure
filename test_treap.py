@@ -8,15 +8,7 @@ import treap
 
 @pytest.fixture
 def mo():
-    monoid = treap.Monoid(
-        fx=operator.add,
-        fa=operator.add,
-        fm=operator.add,
-        fp=lambda m, length: m * length,
-        ex=int,
-        em=int,
-        )
-    return monoid
+    return treap.accumulate_monoid
 
 
 def test_mutablesequence(mo):
@@ -34,6 +26,9 @@ def test_mutablesequence(mo):
 
     for i, v in enumerate(t):
         assert i == v
+
+    for i, v in enumerate(reversed(t)):
+        assert i == 10 - 1 - v
 
     t.insert(3, 100)
     assert len(t) == 11
@@ -161,8 +156,8 @@ def test_acc(mo):
     assert t.root.right.lazy != 0
     t._eval(t.root.right)
     assert t.root.right.lazy == 0
-    assert t.root.right.value == 10103  # XXX: 10103 -> 103
-    assert t.root.right.acc == 10103  # XXX: 10103 -> 103
+    assert t.root.right.value == 10103
+    assert t.root.right.acc == 10103
 
     gen = random.Random(4)
     t = treap.Treap(mo, gen)
@@ -182,11 +177,11 @@ def test_acc(mo):
     'seed',
     range(30)
 )
-def test_addtree(mo, seed):
+def test_addtree(seed):
     gen = random.Random(seed)
-    t = treap.Treap(mo, gen)
+    t = treap.Treap(treap.accumulate_monoid, gen)
 
-    n = 10  # 1000
+    n = 100
     sum_n = sum(range(n))
     t.extend(range(n))
     assert t.get_acc(slice(None, None)) == sum_n
@@ -205,19 +200,30 @@ def test_addtree(mo, seed):
     assert tuple(t[:10]) == (0, 11, 112, 113, 14, 5, 6, 7, 8, 9)
 
 
-def test_mintree():
-    mo = treap.Monoid(
-        fx=min,
-        fa=lambda x, m: m,
-        fm=lambda m1, m2: m2,
-        fp=lambda m, length: m,
-        ex=lambda: 1000000000,
-        em=lambda: 1000000000,
-        )
-    tree = treap.Treap(mo)
+@pytest.mark.parametrize(
+    'seed',
+    range(30)
+)
+def test_mintree(seed):
+    tree = treap.Treap(treap.rmq_monoid, random.Random(seed))
 
-    tree.extend(range(10))
-    assert tuple(tree) == tuple(range(10))
+    n = 100
+    tree.extend(range(n))
+    assert tree.get_acc(slice(None)) == 0
+    assert tree.get_acc(slice(3, 8)) == 3
+    assert tree.get_acc(slice(3, 6)) == 3
+    tree.update(3, 6, 10)
+    assert tree.get_acc(slice(None)) == 0
+    assert tree.get_acc(slice(3, 8)) == 6
+    assert tree.get_acc(slice(3, 6)) == 10
+
+
+def test_mintree_inner():
+    tree = treap.Treap(treap.rmq_monoid, random.Random(0))
+
+    n = 100
+    tree.extend(range(n))
+    assert tuple(tree[:10]) == tuple(range(10))
     assert tree.root.acc == 0
 
     left, temp = tree.split(3)
