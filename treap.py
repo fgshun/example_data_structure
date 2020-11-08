@@ -323,11 +323,3 @@ rmq_monoid = Monoid(
     ex=lambda: 1000000000,
     em=lambda: 1000000000,
     )
-
-
-def main() -> None:
-    pass
-
-
-if __name__ == '__main__':
-    main()
