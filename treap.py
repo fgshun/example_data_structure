@@ -60,7 +60,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         if random_generagor:
             self.random = random_generagor
 
-    def _pushup(self, node: Node[X, M]) -> None:
+    def _propagate(self, node: Node[X, M]) -> None:
         node.length = 1
         node.acc = node.value
         if node.left is not None:
@@ -261,12 +261,12 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             center, right = self._split(node.right, index - length - 1)
             left = node
             left.right = center
-            self._pushup(left)
+            self._propagate(left)
         else:
             left, center = self._split(node.left, index)
             right = node
             right.left = center
-            self._pushup(right)
+            self._propagate(right)
 
         return left, right
 
@@ -291,7 +291,7 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         else:
             node = left
             node.right = self._merge(node.right, right)
-        self._pushup(node)
+        self._propagate(node)
         return node
 
     def merge(self, other: Treap[X, M]) -> Treap[X, M]:
