@@ -4,9 +4,9 @@ import collections
 import operator
 from functools import partial, reduce
 from random import Random
-from typing import (Callable, Deque, Generic, Iterable, Iterator,
-                    MutableSequence, NamedTuple, Optional, Tuple, TypeVar,
-                    overload)
+from typing import (Callable, Deque, Generic, Iterable, Iterator, NamedTuple,
+                    Optional, Sequence, Tuple, TypeVar, overload)
+
 
 class TreapError(Exception):
     pass
@@ -50,7 +50,7 @@ class Node(Generic[X, M]):
         self.priority = priority
 
 
-class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
+class Treap(Sequence[X], Iterable[X], Generic[X, M]):
     random: Random = Random()
     root: Optional[Node[X, M]]
 
@@ -166,9 +166,6 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
             return tree
         raise IndexError()
 
-    def __setitem__(self, index, value):
-        raise NotImplementedError()
-
     def _erase(self, node: Optional[Node[X, M]], start: int, end: int) -> Optional[Node[X, M]]:
         temp, right = self._split(node, end)
         left = self._split(temp, start)[0]
@@ -216,6 +213,15 @@ class Treap(MutableSequence[X], Iterable[X], Generic[X, M]):
         if new_node is None:
             raise TreapError()
         self.root = new_node
+
+    def extend(self, values: Iterable[X]) -> None:
+        root = self.root
+        merge_meth = self._merge
+        ex_meth = self.monoid.ex
+        random = self.random.random
+        for value in values:
+            root = merge_meth(root, Node(value, ex_meth(), random()))
+        self.root = root
 
     def _debug_node(self) -> None:
         if self.root is None:
