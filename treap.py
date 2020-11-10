@@ -202,14 +202,14 @@ class Treap(Sequence[X], Iterable[X], Generic[X, M]):
 
     def insert(self, index: int, value: X) -> None:
         left, right = self._split(self.root, index)
-        temp = self._merge(left, Node(value, self.monoid.ex(), self.random.random()))
+        temp = self._merge(left, Node(value, self.monoid.em(), self.random.random()))
         new_node = self._merge(temp, right)
         if new_node is None:
             raise TreapError()
         self.root = new_node
 
     def append(self, value: X) -> None:
-        new_node = self._merge(self.root, Node(value, self.monoid.ex(), self.random.random()))
+        new_node = self._merge(self.root, Node(value, self.monoid.em(), self.random.random()))
         if new_node is None:
             raise TreapError()
         self.root = new_node
@@ -217,10 +217,10 @@ class Treap(Sequence[X], Iterable[X], Generic[X, M]):
     def extend(self, values: Iterable[X]) -> None:
         root = self.root
         merge_meth = self._merge
-        ex_meth = self.monoid.ex
+        em_meth = self.monoid.em
         random = self.random.random
         for value in values:
-            root = merge_meth(root, Node(value, ex_meth(), random()))
+            root = merge_meth(root, Node(value, em_meth(), random()))
         self.root = root
 
     def _debug_node(self) -> None:
