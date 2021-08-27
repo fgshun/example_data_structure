@@ -24,12 +24,18 @@ class UnionFindTree:
 
     def same(self, x: int, y: int) -> bool:
         return self.find(x) == self.find(y)
+    
+    def groups(self):
+        result = [[] for _ in range(len(self.par))]
+        for i in range(len(self.par)):
+            result[self.find(i)].append(i)
+        return filter(None, result)
 
 
 class UnionFindTreeSize:
     def __init__(self, n: int) -> None:
         self.par = list(range(n))
-        self.size = [1] * n
+        self._size = [1] * n
 
     def find(self, x: int) -> int:
         if self.par[x] == x:
@@ -43,15 +49,27 @@ class UnionFindTreeSize:
         y = self.find(y)
         if x == y:
             return
-        if self.size[x] < self.size[y]:
+        if self._size[x] < self._size[y]:
             self.par[x] = y
-            self.size[y] += self.size[x]
+            self._size[y] += self._size[x]
         else:
             self.par[y] = x
-            self.size[x] += self.size[y]
+            self._size[x] += self._size[y]
 
     def same(self, x: int, y: int) -> bool:
         return self.find(x) == self.find(y)
 
-    def get_size(self, x: int) -> int:
-        return self.size[self.find(x)]
+    def size(self, x: int) -> int:
+        return self._size[self.find(x)]
+    
+    def groups(self):
+        result = [[] for _ in range(len(self.par))]
+        for i in range(len(self.par)):
+            result[self.find(i)].append(i)
+        return filter(None, result)
+
+    # def groups(self):
+    #     result = {}
+    #     for i in range(len(self.par)):
+    #         result.setdefault(self.find(i), []).append(i)
+    #     return result.values()
