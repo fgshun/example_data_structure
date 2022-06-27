@@ -1,6 +1,13 @@
 import operator
-from typing import (Any, Callable, Generic, Iterable, MutableSequence,
-                    NamedTuple, Optional, TypeVar)
+from typing import (Callable, Generic, Iterable, MutableSequence, NamedTuple,
+                    TypeVar)
+
+"""Lazy Segment Tree
+
+参考 - アルゴリズムロジック - セグメント木を徹底解説！0から遅延評価やモノイドまで
+https://algo-logic.info/segment-tree/
+"""
+
 
 X = TypeVar('X')
 M = TypeVar('M')
@@ -22,7 +29,7 @@ class Monoid(NamedTuple):
 
 
 class LazySegumentTree(Generic[X, M]):
-    """セグメント木"""
+    """遅延評価セグメント木"""
     monoid: Monoid
     length: int
     data: MutableSequence[X]
@@ -88,6 +95,7 @@ class LazySegumentTree(Generic[X, M]):
 
 
 def main() -> None:
+    # 区間更新 - 区間の最大値
     # mo = Monoid(fx=max,
     #             fa=lambda x, m: m,
     #             fm=lambda m1, m2: m2,
@@ -95,6 +103,7 @@ def main() -> None:
     #             ex=lambda: -1,
     #             em=lambda: -1,
     #             )
+    # 区間更新 - 区間の最小値
     # mo = Monoid(fx=min,
     #             fa=lambda x, m: m,
     #             fm=lambda m1, m2: m2,
@@ -102,27 +111,22 @@ def main() -> None:
     #             ex=lambda: 1000000000,
     #             em=lambda: 1000000000,
     #             )
+    # 区間加算 - 区間の最大値
+    # mo = Monoid(fx=max,
+    #             fa=operator.add,
+    #             fm=operator.add,
+    #             fp=lambda m, length: m,
+    #             ex=int,
+    #             em=int,
+    #             )
+    # 区間加算 - 区間の合計値
     mo = Monoid(fx=operator.add,
                 fa=operator.add,
                 fm=operator.add,
-                fp=lambda m, length: m * length,
+                fp=operator.mul,  # lambda m, length: m * length,
                 ex=int,
                 em=int,
                 )
-    # mo = Monoid(fx=operator.add,
-    #             fa=operator.mul,
-    #             fm=operator.mul,
-    #             fp=lambda m, length: m,
-    #             ex=int,
-    #             em=lambda: 1,
-    #             )
-    # mo = Monoid(fx=min,
-    #             fa=operator.mul,
-    #             fm=operator.mul,
-    #             fp=lambda m, length: m,
-    #             ex=lambda: 1000000000,
-    #             em=lambda: 1,
-    #             )
 
     # n, s, e = 100000000, 11, 9374
     n, s, e = 1000000, 11, 9374
