@@ -1,4 +1,3 @@
-import operator
 import random
 
 import pytest
@@ -238,3 +237,16 @@ def test_mintree_inner():
 
     tree = left.merge(temp)
     assert tree.root.acc == 0
+
+
+def test_bisect():
+    tree = treap.Treap(treap.rmq_monoid, random.Random(0))
+
+    nums = (0, 1, 2, 5, 5, 5, 7, 8, 9)
+    tree.extend(nums)
+
+    for i, n in enumerate(nums):
+        assert tree[i] == n
+
+    # assert tree.bisect_left(5) == 3
+    # assert tree.bisect_right(5) == 6

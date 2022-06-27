@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import collections
 import operator
-from functools import partial, reduce
+from functools import reduce
 from random import Random
 from typing import (Callable, Deque, Generic, Iterable, Iterator, NamedTuple,
                     Optional, Sequence, Tuple, TypeVar, overload)
