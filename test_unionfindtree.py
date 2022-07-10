@@ -43,3 +43,38 @@ def test_union_find_tree_size():
     assert tree.size(0) == 1
     assert tree.size(1) == 2
     assert tree.size(2) == 2
+
+
+def test_weighted_union_find_tree():
+    tree = unionfindtree.WeightUnionFindTree(10)
+    assert tree.unite(1, 2, 1)
+    assert tree.unite(1, 3, 2)
+    assert tree.unite(3, 4, 4)
+
+    assert not tree.same(1, 5)
+    assert tree.same(1, 2)
+    assert tree.same(1, 3)
+    assert tree.same(1, 4)
+    assert tree.same(2, 1)
+    assert tree.same(2, 3)
+    assert tree.same(2, 4)
+    assert tree.same(3, 1)
+    assert tree.same(3, 2)
+    assert tree.same(3, 4)
+    assert tree.same(4, 1)
+    assert tree.same(4, 2)
+    assert tree.same(4, 3)
+
+    assert tree.weight(0) == 0
+    assert tree.weight(5) == 0
+    assert tree.weight(1) == 0
+    assert tree.weight(2) == 1
+    assert tree.weight(3) == 2
+    assert tree.weight(4) == 6
+
+    assert tree.diff(1, 2) == 1
+    assert tree.diff(2, 1) == -1
+    assert tree.diff(1, 3) == 2
+    assert tree.diff(1, 4) == 6
+    assert tree.diff(2, 3) == 1
+    assert tree.diff(2, 4) == 5
