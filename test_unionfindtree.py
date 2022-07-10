@@ -46,7 +46,7 @@ def test_union_find_tree_size():
 
 
 def test_weighted_union_find_tree():
-    tree = unionfindtree.WeightUnionFindTree(10)
+    tree = unionfindtree.WeightedUnionFindTree(10)
     assert tree.unite(1, 2, 1)
     assert tree.unite(1, 3, 2)
     assert tree.unite(3, 4, 4)

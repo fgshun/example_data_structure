@@ -92,7 +92,7 @@ UnionFindTree = UnionFindTreeRank
 
 
 
-class WeightUnionFindTree:
+class WeightedUnionFindTree:
     """重み付き Union Find Tree
     
     重みは int に限らず、 アーベル群なら乗るとのことだが、
