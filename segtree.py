@@ -1,6 +1,6 @@
 import operator
-from typing import (Any, Callable, Generic, Iterable, MutableSequence,
-                    NamedTuple, Optional, TypeVar)
+from typing import (Callable, Generic, Iterable, MutableSequence, NamedTuple,
+                    TypeVar)
 
 X = TypeVar('X')
 FX = Callable[[X, X], X]
